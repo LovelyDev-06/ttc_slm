@@ -1,0 +1,53 @@
+models:
+  llama1b: "meta-llama/Llama-3.2-1B-Instruct"
+  qwen1_5b: "Qwen/Qwen2.5-1.5B-Instruct"
+  max_new_tokens: 512
+  temperature_greedy: 0.0
+  temperature_sampling: 0.8
+  top_p: 0.95
+  dtype: "bfloat16"
+  device_map: "auto"
+
+datasets:
+  arc_challenge:
+    hf_name: "allenai/ai2_arc"
+    config: "ARC-Challenge"
+    split: "test"
+  mmlu_stem:
+    hf_name: "cais/mmlu"
+    split: "test"
+
+best_of_n:
+  n_candidates: 8
+self_consistency:
+  n_samples: 8
+tree_search:
+  branching_factor: 3
+  max_depth: 4
+  beam_width: 3
+verifier:
+  reasoning_quality: true
+router:
+  type: "learned_latent"
+  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+  hidden_dim: 64
+  latent_dim: 16
+  epochs: 30
+  lr: 0.001
+  strategies_available: ["greedy", "best_of_n", "self_consistency", "tree_search"]
+  # Update this only after inspecting the training label distribution.
+  inference_mask_unseen: []
+  cost_penalty_lambda: 0.05
+  step_judge: "llm"
+  judge_max_new_tokens: 1
+flop_accounting:
+  count_prompt_tokens: true
+  count_generated_tokens: true
+paths:
+  logs_dir: "logs"
+  checkpoints_dir: "checkpoints"
+  results_dir: "logs/results"
+hub:
+  repo_id: "YOUR_USERNAME/reasoning_track_slm"
+  private: true
+  push_every_n_problems: 10

@@ -1,0 +1,75 @@
+# ============================================================
+# Code Track — configuration
+# Mirrors the structure of Partner A's configs/config.yaml so the
+# two repos stay easy to compare / merge at paper-integration time.
+# ============================================================
+
+models:
+  qwen1_5b: "Qwen/Qwen2.5-1.5B-Instruct"
+  qwen7b: "Qwen/Qwen2.5-7B-Instruct"
+  max_new_tokens: 512
+  temperature_greedy: 0.0
+  temperature_sampling: 0.8
+  top_p: 0.95
+  dtype: "bfloat16"          # use "float16" if your GPU doesn't support bf16
+  device_map: "auto"
+
+datasets:
+  humaneval:
+    hf_name: "openai_humaneval"
+    split: "test"
+  mbpp:
+    hf_name: "mbpp"
+    split: "test"            # sanitized split is "test"; full is also available as "full"
+
+best_of_n:
+  n_candidates: 8
+
+self_consistency:
+  n_samples: 8
+
+
+tree_search:
+  branching_factor: 3
+  max_depth: 4                # depth = number of code "chunks" (see tree_search.py) expanded
+  beam_width: 3                # how many partial paths survive each pruning step
+
+verifier:
+  # two-stage check used everywhere a "correctness/quality" signal is needed
+  use_ast_validity: true       # stage 1: does the candidate parse into a valid AST at all?
+  use_execution: true          # stage 2: does it pass the benchmark's unit tests?
+  execution_timeout_s: 6
+
+router:
+  type: "learned_latent"       # a small MLP trained on problem+candidate embeddings, NOT a hand-written if/else
+  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"   # cheap CPU-friendly embedder for router features
+  hidden_dim: 64
+  latent_dim: 16
+  epochs: 30
+  lr: 0.001
+  strategies_available: ["greedy", "best_of_n", "self_consistency", "tree_search"]  # what the router is allowed to pick between
+  # Strategies with zero positive labels in router training are masked at inference.
+  # This prevents an unseen/untrained class logit from being selected by chance.
+  inference_mask_unseen: ["tree_search"]
+  cost_penalty_lambda: 0.05
+
+  # Small LLM judge used to score intermediate Tree Search steps.
+  # This replaces the old heuristic-only pruning signal.
+  step_judge: "llm"
+  judge_max_new_tokens: 1    # trades accuracy vs FLOP cost when labeling training data (see train_router.py)
+
+flop_accounting:
+  # Standard inference FLOPs approximation: 2 * N_params * N_tokens (forward pass only, per token)
+  # See src/flop_utils.py for the exact formula and where it's applied.
+  count_prompt_tokens: true
+  count_generated_tokens: true
+
+paths:
+  logs_dir: "logs"
+  checkpoints_dir: "checkpoints"
+  results_dir: "logs/results"
+
+hub:
+  repo_id: "swasa26/code_track_slm_2"   
+  private: true
+  push_every_n_problems: 10    # incremental push so a Kaggle session timeout doesn't lose progress
