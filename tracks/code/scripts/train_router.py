@@ -112,7 +112,7 @@ def main():
        {strategies[k]: counts.get(k,0) for k in range(len(strategies))})
 
  embeddings=embed_problems(labeled_problems,cfg); X=torch.tensor(embeddings,dtype=torch.float32); y=torch.tensor(labels,dtype=torch.long)
- net=LatentRouterNet(embeddings.shape[1],cfg["router"]["hidden_dim"],cfg["router"]["latent_dim"],len(strategies)); opt=torch.optim.Adam(net.parameters(),lr=cfg["router"]["lr"])
+ net=LatentRouterNet(embeddings.shape[1],cfg["router"]["hidden_dim"],cfg["router"]["latent_dim"],len(strategies)); opt = torch.optim.Adam(net.parameters(), lr=cfg["router"]["lr"], weight_decay=1e-3)
 
  # --- Class-balanced loss ---------------------------------------------------
  # Even after removing the mislabeling above, the genuine label
