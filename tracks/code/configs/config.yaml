@@ -45,7 +45,7 @@ router:
   embedding_model: "sentence-transformers/all-MiniLM-L6-v2"   # cheap CPU-friendly embedder for router features
   hidden_dim: 64
   latent_dim: 16
-  epochs: 30
+  epochs: 12
   lr: 0.001
   strategies_available: ["greedy", "best_of_n", "self_consistency", "tree_search"]  # what the router is allowed to pick between
   # Strategies with zero positive labels in router training are masked at inference.
