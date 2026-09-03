@@ -131,7 +131,7 @@ def main():
  class_weights = torch.zeros_like(class_counts)
  raw_weights = class_counts.sum() / (present.sum() * class_counts[present])
  MAX_WEIGHT = 5.0 
- class_weights[present] = torch.clamp(raw_weights[present], max=MAX_WEIGHT)
+ class_weights[present] = torch.clamp(raw_weights, max=MAX_WEIGHT)
  print("Router class weights:",{strategies[k]: round(class_weights[k].item(),3) for k in range(len(strategies))})
  loss_fn=nn.CrossEntropyLoss(weight=class_weights)
  train_state=a.out+".train.json"; weight_resume=a.out+".train.safetensors"; start_epoch=0
