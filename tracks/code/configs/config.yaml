@@ -70,6 +70,6 @@ paths:
   results_dir: "logs/results"
 
 hub:
-  repo_id: "swasa26/code_track_slm_2"   
+  repo_id: "swasa26/ttc_slm"   
   private: true
   push_every_n_problems: 10    # incremental push so a Kaggle session timeout doesn't lose progress
