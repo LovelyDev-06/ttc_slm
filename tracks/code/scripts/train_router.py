@@ -128,8 +128,10 @@ def main():
  # (and harder-vs-easier) distinction instead of the prior alone.
  class_counts=torch.tensor([counts.get(k,0) for k in range(len(strategies))],dtype=torch.float32)
  present=class_counts>0
- class_weights=torch.zeros_like(class_counts)
- class_weights[present]=class_counts.sum()/(present.sum()*class_counts[present])
+ class_weights = torch.zeros_like(class_counts)
+ raw_weights = class_counts.sum() / (present.sum() * class_counts[present])
+ MAX_WEIGHT = 5.0 
+ class_weights[present] = torch.clamp(raw_weights[present], max=MAX_WEIGHT)
  print("Router class weights:",{strategies[k]: round(class_weights[k].item(),3) for k in range(len(strategies))})
  loss_fn=nn.CrossEntropyLoss(weight=class_weights)
  train_state=a.out+".train.json"; weight_resume=a.out+".train.safetensors"; start_epoch=0
