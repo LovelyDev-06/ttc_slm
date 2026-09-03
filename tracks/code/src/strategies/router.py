@@ -47,6 +47,7 @@ class LatentRouterNet(nn.Module):
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
+            nn.Dropout(0.2),
             nn.Linear(hidden_dim, latent_dim),   # <- latent bottleneck
         )
         self.classifier = nn.Linear(latent_dim, num_classes)
