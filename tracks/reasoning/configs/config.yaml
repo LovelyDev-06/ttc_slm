@@ -48,6 +48,6 @@ paths:
   checkpoints_dir: "checkpoints"
   results_dir: "logs/results"
 hub:
-  repo_id: "YOUR_USERNAME/reasoning_track_slm"
+  repo_id: "ARNAK15/ttc_slm"
   private: true
   push_every_n_problems: 10
