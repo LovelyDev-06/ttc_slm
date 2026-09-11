@@ -132,6 +132,7 @@ def main():
  raw_weights = class_counts.sum() / (present.sum() * class_counts[present])
  min_weight = raw_weights[present].min()
  normalized_weights = raw_weights / min_weight
+ MAX_WEIGHT = 5.0
  class_weights[present] = torch.clamp(normalized_weights[present], max=MAX_WEIGHT)
  print("Router class weights (Normalized):", {strategies[k]: round(class_weights[k].item(),3) for k in range(len(strategies))})
  loss_fn = nn.CrossEntropyLoss(weight=class_weights)
