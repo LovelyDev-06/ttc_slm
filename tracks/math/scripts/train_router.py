@@ -126,11 +126,17 @@ def main():
  # gradient contribution matter equally regardless of how many examples it
  # has, so the net is actually pushed to learn the greedy-vs-not-greedy
  # (and harder-vs-easier) distinction instead of the prior alone.
+  # This is PyTorch, not scikit-learn -- CrossEntropyLoss has no
+ # class_weight="balanced" string option the way sklearn's LogisticRegression
+ # does, so the equivalent weight tensor is computed by hand using sklearn's
+ # own published formula: weight[c] = n_samples / (n_classes * count[c]),
+ # restricted to classes with >=1 real example (an absent class gets weight
+ # 0, not a division by zero / an invented count).
  class_counts=torch.tensor([counts.get(k,0) for k in range(len(strategies))],dtype=torch.float32)
  present=class_counts>0
  class_weights=torch.zeros_like(class_counts)
  class_weights[present]=class_counts.sum()/(present.sum()*class_counts[present])
- print("Router class weights:",{strategies[k]: round(class_weights[k].item(),3) for k in range(len(strategies))})
+ print("Router class weights (sklearn-'balanced'-equivalent):",{strategies[k]: round(class_weights[k].item(),3) for k in range(len(strategies))})
  loss_fn=nn.CrossEntropyLoss(weight=class_weights)
  train_state=a.out+".train.json"; weight_resume=a.out+".train.safetensors"; start_epoch=0
  if not os.path.exists(train_state) and not a.no_push: download_file(cfg,f"checkpoints/{os.path.basename(train_state)}",train_state)
