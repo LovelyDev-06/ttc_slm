@@ -21,12 +21,11 @@ _FUNCS = {
     "tree_search": run_tree_search,
 }
 def main():
- p=argparse.ArgumentParser(); p.add_argument("--model",required=True,choices=["llama1b","llama3b"]); p.add_argument("--dataset",default="arc_challenge",choices=["gsm8k","math"]); p.add_argument("--split",default="train"); p.add_argument("--limit",type=int,default=None); p.add_argument("--config",default="configs/config.yaml"); p.add_argument("--out",default="checkpoints/router.safetensors"); p.add_argument("--no_push",action="store_true"); a=p.parse_args()
+ p=argparse.ArgumentParser(); p.add_argument("--model",required=True,choices=["llama1b","llama3b"]); p.add_argument("--dataset",default="arc_challenge",choices=["gsm8k","math"]); p.add_argument("--split",default="train"); p.add_argument("--limit",type=int,default=None); p.add_argument("--seed",type=int,default=None,help="if set with --limit, take a reproducible random sample instead of the first N problems"); p.add_argument("--config",default="configs/config.yaml"); p.add_argument("--out",default="checkpoints/router.safetensors"); p.add_argument("--no_push",action="store_true"); a=p.parse_args()
  with open(a.config,encoding="utf-8") as f: cfg=yaml.safe_load(f)
  push_every_n = cfg["hub"].get("push_every_n_problems", 30)
  os.makedirs(os.path.dirname(a.out) or ".",exist_ok=True); os.makedirs(cfg["paths"]["checkpoints_dir"],exist_ok=True)
- problems=load_dataset(a.dataset,split=a.split,limit=a.limit); tag=len(problems); progress_path=os.path.join(cfg["paths"]["checkpoints_dir"],f"router_labels_{a.model}_{a.dataset}_{a.split}_limit{tag}.json"); hub_progress=f"checkpoints/{os.path.basename(progress_path)}"
- if not os.path.exists(progress_path) and not a.no_push: download_file(cfg,hub_progress,progress_path)
+ problems=load_dataset(a.dataset,split=a.split,limit=a.limit,seed=a.seed); tag=len(problems)
  completed=load_json_checkpoint(progress_path).get("completed",{}) if os.path.exists(progress_path) else {}
  model,tokenizer,num_params=load_model_and_tokenizer(a.model,cfg); strategies=cfg["router"]["strategies_available"]
  # cost_penalty_lambda no longer needs to be read here: restricting the
