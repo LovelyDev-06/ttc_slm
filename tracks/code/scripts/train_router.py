@@ -129,7 +129,8 @@ def main():
  class_counts=torch.tensor([counts.get(k,0) for k in range(len(strategies))],dtype=torch.float32)
  present=class_counts>0
  class_weights = torch.zeros_like(class_counts)
- raw_weights = class_counts.sum() / (present.sum() * class_counts[present])
+ raw_weights = torch.zeros_like(class_counts, dtype=torch.float)
+ raw_weights[present] = (class_counts.sum() / (present.sum() * class_counts[present]))
  min_weight = raw_weights[present].min()
  normalized_weights = raw_weights / min_weight
  MAX_WEIGHT = 5.0
