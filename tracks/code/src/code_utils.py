@@ -131,8 +131,28 @@ def is_valid_python(code: str) -> bool:
 # ----------------------------------------------------------------------
 # 3. Execution against benchmark tests
 # ----------------------------------------------------------------------
+def _executable_program(candidate_code, prompt="", dataset="", entry_point=""):
+    """HumanEval eval is prompt+completion. Use the model text as-is if it
+    already defines entry_point; otherwise prepend the official prefix."""
+    if dataset != "humaneval" or not prompt:
+        return candidate_code
 
-def run_tests(candidate_code: str, test_code: str, entry_point: str, timeout_s: int = 6) -> dict:
+    try:
+        tree = ast.parse(candidate_code)
+        has_fn = any(
+            isinstance(n, ast.FunctionDef) and n.name == entry_point
+            for n in tree.body
+        )
+    except SyntaxError:
+        has_fn = False
+
+    if has_fn:
+        return candidate_code
+
+    return prompt + candidate_code
+    
+def run_tests(candidate_code: str, test_code: str, entry_point: str, timeout_s: int = 6,
+              prompt: str = "", dataset: str = "") -> dict:
     """
     Runs `candidate_code` + `test_code` in a fresh subprocess.
 
@@ -149,11 +169,23 @@ def run_tests(candidate_code: str, test_code: str, entry_point: str, timeout_s: 
     subprocess + timeout contains that; (2) it keeps each problem's
     execution state from leaking into the next one.
     """
-    valid_ast = is_valid_python(candidate_code)
-    if not valid_ast:
-        return {"passed": False, "valid_ast": False, "error": "SyntaxError", "timeout": False}
+    program = _executable_program(
+        candidate_code,
+        prompt=prompt,
+        dataset=dataset,
+        entry_point=entry_point,
+    )
 
-    full_script = _build_test_script(candidate_code, test_code, entry_point)
+    valid_ast = is_valid_python(program)
+    if not valid_ast:
+        return {
+            "passed": False,
+            "valid_ast": False,
+            "error": "SyntaxError",
+            "timeout": False,
+        }
+
+    full_script = _build_test_script(program, test_code, entry_point)
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(full_script)
