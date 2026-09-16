@@ -21,11 +21,11 @@ _FUNCS = {
     "tree_search": run_tree_search,
 }
 def main():
- p=argparse.ArgumentParser(); p.add_argument("--model",required=True,choices=["llama1b","qwen1_5b"]); p.add_argument("--dataset",default="arc_challenge",choices=["arc_challenge","mmlu_stem"]); p.add_argument("--split",default="train"); p.add_argument("--limit",type=int,default=None); p.add_argument("--config",default="configs/config.yaml"); p.add_argument("--out",default="checkpoints/router.safetensors"); p.add_argument("--no_push",action="store_true"); a=p.parse_args()
+ p=argparse.ArgumentParser(); p.add_argument("--model",required=True,choices=["llama1b","qwen1_5b"]); p.add_argument("--dataset",default="arc_challenge",choices=["arc_challenge","mmlu_stem"]); p.add_argument("--split",default="train"); p.add_argument("--limit",type=int,default=None); p.add_argument("--seed",type=int,default=None,help="if set with --limit, take a reproducible random sample instead of the first N problems"); p.add_argument("--config",default="configs/config.yaml"); p.add_argument("--out",default="checkpoints/router.safetensors"); p.add_argument("--no_push",action="store_true"); p.add_argument("--fresh_net",action="store_true",help="retrain the network from scratch, reusing already-completed labels, without resuming from a prior net checkpoint"); a=p.parse_args()
  with open(a.config,encoding="utf-8") as f: cfg=yaml.safe_load(f)
  push_every_n = cfg["hub"].get("push_every_n_problems", 30)
  os.makedirs(os.path.dirname(a.out) or ".",exist_ok=True); os.makedirs(cfg["paths"]["checkpoints_dir"],exist_ok=True)
- problems=load_dataset(a.dataset,split=a.split,limit=a.limit); tag=len(problems); progress_path=os.path.join(cfg["paths"]["checkpoints_dir"],f"router_labels_{a.model}_{a.dataset}_{a.split}_limit{tag}.json"); hub_progress=f"checkpoints/{os.path.basename(progress_path)}"
+ problems=load_dataset(a.dataset,split=a.split,limit=a.limit,seed=a.seed); tag=len(problems); progress_path=os.path.join(cfg["paths"]["checkpoints_dir"],f"router_labels_{a.model}_{a.dataset}_{a.split}_limit{tag}.json"); hub_progress=f"checkpoints/{os.path.basename(progress_path)}"
  if not os.path.exists(progress_path) and not a.no_push: download_file(cfg,hub_progress,progress_path)
  completed=load_json_checkpoint(progress_path).get("completed",{}) if os.path.exists(progress_path) else {}
  model,tokenizer,num_params=load_model_and_tokenizer(a.model,cfg); strategies=cfg["router"]["strategies_available"]
@@ -133,15 +133,29 @@ def main():
  print("Router class weights:",{strategies[k]: round(class_weights[k].item(),3) for k in range(len(strategies))})
  loss_fn=nn.CrossEntropyLoss(weight=class_weights)
  train_state=a.out+".train.json"; weight_resume=a.out+".train.safetensors"; start_epoch=0
- if not os.path.exists(train_state) and not a.no_push: download_file(cfg,f"checkpoints/{os.path.basename(train_state)}",train_state)
- if not os.path.exists(weight_resume) and not a.no_push: download_file(cfg,f"checkpoints/{os.path.basename(weight_resume)}",weight_resume)
- if os.path.exists(train_state) and os.path.exists(weight_resume):
+ if not os.path.exists(train_state) and not a.no_push and not a.fresh_net: download_file(cfg,f"checkpoints/{os.path.basename(train_state)}",train_state)
+ if not os.path.exists(weight_resume) and not a.no_push and not a.fresh_net: download_file(cfg,f"checkpoints/{os.path.basename(weight_resume)}",weight_resume)
+ if not a.fresh_net and os.path.exists(train_state) and os.path.exists(weight_resume):
   state=load_json_checkpoint(train_state); net.load_state_dict(load_file(weight_resume)); start_epoch=int(state.get("epoch",0)); print(f"Resuming router training from epoch {start_epoch}")
+ elif a.fresh_net:
+  print("--fresh_net: training the network from scratch (reusing already-completed labels)")
  net.train()
+ best_acc=-1.0; best_state=None
  for epoch in range(start_epoch,cfg["router"]["epochs"]):
   opt.zero_grad(); logits,_=net(X); loss=loss_fn(logits,y); loss.backward(); opt.step(); acc=(logits.argmax(-1)==y).float().mean().item(); print(f"epoch {epoch+1}/{cfg['router']['epochs']} loss={loss.item():.4f} train_acc={acc:.2%}")
+  # Track best-accuracy epoch, not just the last -- training accuracy on a
+  # small/imbalanced label set can peak mid-training and regress by the
+  # final epoch (observed in the math track: peaked at 58.59%, regressed to
+  # 40.62% by the final epoch). Saving only the final epoch silently keeps
+  # the worse model.
+  if acc>best_acc: best_acc=acc; best_state={k:v.clone() for k,v in net.state_dict().items()}
   save_file(net.state_dict(),weight_resume); atomic_json_save({"version":3,"epoch":epoch+1,"loss":float(loss.item()),"metadata":{"model":a.model,"dataset":a.dataset,"split":a.split,"limit":tag}},train_state)
-  if not a.no_push: push_file(weight_resume,cfg,f"checkpoints/{os.path.basename(weight_resume)}"); push_file(train_state,cfg,f"checkpoints/{os.path.basename(train_state)}")
+  # Push every 5 epochs, not every epoch -- pushing 2 files x 30 epochs plus
+  # the labeling-phase pushes can approach Hugging Face's hourly commit rate
+  # limit (128/hour) in a single run.
+  if not a.no_push and ((epoch+1)%5==0 or epoch+1==cfg["router"]["epochs"]): push_file(weight_resume,cfg,f"checkpoints/{os.path.basename(weight_resume)}"); push_file(train_state,cfg,f"checkpoints/{os.path.basename(train_state)}")
+ if best_state is not None:
+  net.load_state_dict(best_state); print(f"Using best checkpoint: train_acc={best_acc:.2%} (final epoch was {acc:.2%})")
  save_file(net.state_dict(),a.out); print(f"Saved trained learned latent router to {a.out}")
  if not a.no_push: push_file(a.out,cfg,f"checkpoints/{os.path.basename(a.out)}")
 if __name__=="__main__": main()
