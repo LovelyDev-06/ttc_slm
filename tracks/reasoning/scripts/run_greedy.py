@@ -33,6 +33,7 @@ def main():
     parser.add_argument("--dataset", required=True, choices=["arc_challenge", "mmlu_stem"])
     parser.add_argument("--split", default="test")
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--seed", type=int, default=None, help="if set with --limit, take a reproducible random sample instead of the first N problems")
     parser.add_argument("--config", default="configs/config.yaml")
     parser.add_argument("--no_push", action="store_true")
     args = parser.parse_args()
@@ -42,7 +43,7 @@ def main():
     os.makedirs(config["paths"]["logs_dir"], exist_ok=True)
     os.makedirs(config["paths"]["checkpoints_dir"], exist_ok=True)
 
-    problems = load_dataset(args.dataset, split=args.split, limit=args.limit)
+    problems = load_dataset(args.dataset, split=args.split, limit=args.limit, seed=args.seed)
     limit_tag = len(problems)
     stem = f"greedy_{args.model}_{args.dataset}_{args.split}_limit{limit_tag}"
     checkpoint_path = os.path.join(config["paths"]["checkpoints_dir"], stem + ".json")
