@@ -48,6 +48,6 @@ paths:
   checkpoints_dir: "checkpoints"
   results_dir: "logs/results"
 hub:
-  repo_id: "ARNAK15/ttc_slm"
-  private: true
+  repo_id: "swasa26/ttc-slm2"
+  private: false
   push_every_n_problems: 10
