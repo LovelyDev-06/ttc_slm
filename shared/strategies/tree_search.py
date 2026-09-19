@@ -50,7 +50,7 @@ def run_tree_search(model,tokenizer,num_params,problems,config,ledger,verifier=N
             candidates.sort(key=lambda c:c["score"],reverse=True); beams=candidates[:beam_width]
             if all(_looks_complete(b["code"]) for b in beams): break
         best=max(beams,key=lambda b:b["score"]); final_code=extract_code(best["code"])
-        tr=verify_final(final_code,problem["test"],problem["entry_point"],timeout_s=config["verifier"]["execution_timeout_s"])
+        tr=verify_final(final_code,problem["test"],problem["entry_point"],timeout_s=config["verifier"]["execution_timeout_s"],prompt=problem["prompt"],dataset=problem["dataset"])
         ledger.log(FlopRecord("tree_search",problem["problem_id"],num_params,base_tokens,total_gen,1,judge_calls,judge_tokens))
         results.append({"problem_id":problem["problem_id"],"dataset":problem["dataset"],"strategy":"tree_search","code":final_code,"passed":tr["passed"],"valid_ast":tr["valid_ast"],"error":tr["error"],"final_beam_score":best["score"],"step_judge":"llm","judge_calls":judge_calls})
     return results
