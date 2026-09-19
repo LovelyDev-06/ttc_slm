@@ -112,7 +112,7 @@ def main():
        {strategies[k]: counts.get(k,0) for k in range(len(strategies))})
 
  embeddings=embed_problems(labeled_problems,cfg); X=torch.tensor(embeddings,dtype=torch.float32); y=torch.tensor(labels,dtype=torch.long)
- net=LatentRouterNet(embeddings.shape[1],cfg["router"]["hidden_dim"],cfg["router"]["latent_dim"],len(strategies)); opt=torch.optim.Adam(net.parameters(),lr=cfg["router"]["lr"])
+ net=LatentRouterNet(embeddings.shape[1],cfg["router"]["hidden_dim"],cfg["router"]["latent_dim"],len(strategies)); opt=torch.optim.Adam(net.parameters(),lr=cfg["router"]["lr"],weight_decay=1e-4)
 
  # --- Class-balanced loss ---------------------------------------------------
  # Even after removing the mislabeling above, the genuine label
@@ -129,8 +129,13 @@ def main():
  class_counts=torch.tensor([counts.get(k,0) for k in range(len(strategies))],dtype=torch.float32)
  present=class_counts>0
  class_weights=torch.zeros_like(class_counts)
- class_weights[present]=class_counts.sum()/(present.sum()*class_counts[present])
- print("Router class weights:",{strategies[k]: round(class_weights[k].item(),3) for k in range(len(strategies))})
+ raw_weights=torch.zeros_like(class_counts,dtype=torch.float)
+ raw_weights[present]=class_counts.sum()/(present.sum()*class_counts[present])
+ min_weight=raw_weights[present].min()
+ normalized_weights=raw_weights/min_weight
+ MAX_WEIGHT=5.0
+ class_weights[present]=torch.clamp(normalized_weights[present],max=MAX_WEIGHT)
+ print("Router class weights (Normalized):",{strategies[k]: round(class_weights[k].item(),3) for k in range(len(strategies))})
  loss_fn=nn.CrossEntropyLoss(weight=class_weights)
  train_state=a.out+".train.json"; weight_resume=a.out+".train.safetensors"; start_epoch=0
  if not os.path.exists(train_state) and not a.no_push and not a.fresh_net: download_file(cfg,f"checkpoints/{os.path.basename(train_state)}",train_state)
