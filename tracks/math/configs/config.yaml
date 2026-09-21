@@ -28,4 +28,4 @@ router:
   judge_max_new_tokens: 1
 flop_accounting: {count_prompt_tokens: true, count_generated_tokens: true}
 paths: {logs_dir: "logs", checkpoints_dir: "checkpoints", results_dir: "logs/results"}
-hub: {repo_id: "YOUR_USERNAME/math_track_slm", private: true, push_every_n_problems: 10}
+hub: {repo_id: "swasa26/ttc-slm3", private: false, push_every_n_problems: 10}
