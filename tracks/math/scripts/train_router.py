@@ -21,7 +21,7 @@ _FUNCS = {
     "tree_search": run_tree_search,
 }
 def main():
- p=argparse.ArgumentParser(); p.add_argument("--model",required=True,choices=["llama1b","llama3b"]); p.add_argument("--dataset",default="arc_challenge",choices=["gsm8k","math"]); p.add_argument("--split",default="train"); p.add_argument("--limit",type=int,default=None); p.add_argument("--seed",type=int,default=None,help="if set with --limit, take a reproducible random sample instead of the first N problems"); p.add_argument("--config",default="configs/config.yaml"); p.add_argument("--out",default="checkpoints/router.safetensors"); p.add_argument("--no_push",action="store_true"); p.add_argument("--fresh_net",action="store_true",help="retrain the network from scratch, reusing already-completed labels, without resuming from a prior net checkpoint"); a=p.parse_args()
+ p=argparse.ArgumentParser(); p.add_argument("--model",required=True,choices=["llama1b","llama3b"]); p.add_argument("--dataset",default="gsm8k",choices=["gsm8k","math"]); p.add_argument("--split",default="train"); p.add_argument("--limit",type=int,default=None); p.add_argument("--seed",type=int,default=None,help="if set with --limit, take a reproducible random sample instead of the first N problems"); p.add_argument("--config",default="configs/config.yaml"); p.add_argument("--out",default="checkpoints/router.safetensors"); p.add_argument("--no_push",action="store_true"); p.add_argument("--fresh_net",action="store_true",help="retrain the network from scratch, reusing already-completed labels, without resuming from a prior net checkpoint"); a=p.parse_args()
  with open(a.config,encoding="utf-8") as f: cfg=yaml.safe_load(f)
  push_every_n = cfg["hub"].get("push_every_n_problems", 30)
  os.makedirs(os.path.dirname(a.out) or ".",exist_ok=True); os.makedirs(cfg["paths"]["checkpoints_dir"],exist_ok=True)
@@ -112,7 +112,7 @@ def main():
        {strategies[k]: counts.get(k,0) for k in range(len(strategies))})
 
  embeddings=embed_problems(labeled_problems,cfg); X=torch.tensor(embeddings,dtype=torch.float32); y=torch.tensor(labels,dtype=torch.long)
- net=LatentRouterNet(embeddings.shape[1],cfg["router"]["hidden_dim"],cfg["router"]["latent_dim"],len(strategies)); opt=torch.optim.Adam(net.parameters(),lr=cfg["router"]["lr"])
+ net=LatentRouterNet(embeddings.shape[1],cfg["router"]["hidden_dim"],cfg["router"]["latent_dim"],len(strategies)); opt=torch.optim.Adam(net.parameters(),lr=cfg["router"]["lr"],weight_decay=1e-4)
 
  # --- Class-balanced loss ---------------------------------------------------
  # Even after removing the mislabeling above, the genuine label
@@ -136,8 +136,13 @@ def main():
  class_counts=torch.tensor([counts.get(k,0) for k in range(len(strategies))],dtype=torch.float32)
  present=class_counts>0
  class_weights=torch.zeros_like(class_counts)
- class_weights[present]=class_counts.sum()/(present.sum()*class_counts[present])
- print("Router class weights (sklearn-'balanced'-equivalent):",{strategies[k]: round(class_weights[k].item(),3) for k in range(len(strategies))})
+ raw_weights=torch.zeros_like(class_counts,dtype=torch.float)
+ raw_weights[present]=class_counts.sum()/(present.sum()*class_counts[present])
+ min_weight=raw_weights[present].min()
+ normalized_weights=raw_weights/min_weight
+ MAX_WEIGHT=5.0
+ class_weights[present]=torch.clamp(normalized_weights[present],max=MAX_WEIGHT)
+ print("Router class weights (Normalized):",{strategies[k]: round(class_weights[k].item(),3) for k in range(len(strategies))})
  loss_fn=nn.CrossEntropyLoss(weight=class_weights)
  train_state=a.out+".train.json"; weight_resume=a.out+".train.safetensors"; start_epoch=0
  if not os.path.exists(train_state) and not a.no_push and not a.fresh_net: download_file(cfg,f"checkpoints/{os.path.basename(train_state)}",train_state)

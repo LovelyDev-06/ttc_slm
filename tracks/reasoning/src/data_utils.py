@@ -44,7 +44,7 @@ def _normalize(example, idx, dataset, subset=None):
     }
 
 
-def load_dataset(name: str, split: str="test", limit: int=None):
+def load_dataset(name: str, split: str="test", limit: int=None, seed: int=None):
     name=name.lower()
     if name in {"arc", "arc_challenge", "arc-challenge"}:
         ds=hf_load_dataset("allenai/ai2_arc", "ARC-Challenge", split=split)
@@ -61,5 +61,12 @@ def load_dataset(name: str, split: str="test", limit: int=None):
         problems=parts
     else:
         raise ValueError("Unknown dataset. Expected arc_challenge or mmlu_stem.")
-    if limit is not None: problems=problems[:limit]
+    if limit is not None and seed is not None:
+        import random
+        rng=random.Random(seed)
+        problems=rng.sample(problems, min(limit, len(problems)))
+        # keep a stable, readable order once sampled
+        problems.sort(key=lambda p: p["problem_id"])
+    elif limit is not None:
+        problems=problems[:limit]
     return problems

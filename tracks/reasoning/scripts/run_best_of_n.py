@@ -20,10 +20,10 @@ def restore_ledger(records):
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--model",required=True,choices=["llama1b","qwen1_5b"]); p.add_argument("--dataset",required=True,choices=["arc_challenge","mmlu_stem"])
-    p.add_argument("--split",default="test"); p.add_argument("--limit",type=int,default=None); p.add_argument("--config",default="configs/config.yaml"); p.add_argument("--no_push",action="store_true"); a=p.parse_args()
+    p.add_argument("--split",default="test"); p.add_argument("--limit",type=int,default=None); p.add_argument("--seed",type=int,default=None,help="if set with --limit, take a reproducible random sample instead of the first N problems"); p.add_argument("--config",default="configs/config.yaml"); p.add_argument("--no_push",action="store_true"); a=p.parse_args()
     with open(a.config,encoding="utf-8") as f: cfg=yaml.safe_load(f)
     os.makedirs(cfg["paths"]["logs_dir"],exist_ok=True); os.makedirs(cfg["paths"]["checkpoints_dir"],exist_ok=True)
-    problems=load_dataset(a.dataset,split=a.split,limit=a.limit); tag=len(problems)
+    problems=load_dataset(a.dataset,split=a.split,limit=a.limit,seed=a.seed); tag=len(problems)
     stem=f"best_of_n_{a.model}_{a.dataset}_{a.split}_limit{tag}"; cp=os.path.join(cfg["paths"]["checkpoints_dir"],stem+".json"); csv=os.path.join(cfg["paths"]["logs_dir"],stem+".csv"); hubcp=f"checkpoints/{stem}.json"
     if not os.path.exists(cp) and not a.no_push: download_file(cfg,hubcp,cp)
     state=load_json_checkpoint(cp) if os.path.exists(cp) else {"results":[],"ledger_records":[]}

@@ -32,8 +32,8 @@ router:
   embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
   hidden_dim: 64
   latent_dim: 16
-  epochs: 12
-  lr: 0.001
+  epochs: 30
+  lr: 0.0001
   strategies_available: ["greedy", "best_of_n", "self_consistency", "tree_search"]
   # Update this only after inspecting the training label distribution.
   inference_mask_unseen: []
@@ -48,6 +48,6 @@ paths:
   checkpoints_dir: "checkpoints"
   results_dir: "logs/results"
 hub:
-  repo_id: "ARNAK15/ttc_slm"
-  private: true
+  repo_id: "swasa26/ttc-slm2"
+  private: false
   push_every_n_problems: 10
