@@ -109,9 +109,13 @@ class LearnedVerifier:
         return float(self.model.predict_proba(feats)[0, 1])
 
 
-def verify_final(code: str, test: str, entry_point: str, timeout_s: int) -> dict:
+def verify_final(code: str, test: str, entry_point: str, timeout_s: int,
+                 prompt: str = "", dataset: str = "") -> dict:
     """The 'real' ground-truth verifier used at the END of a strategy
     (not for ranking partials): stage 1 AST validity, stage 2 execution.
     This is just a thin re-export of code_utils.run_tests for readability
     at call sites, e.g. `from src.strategies.verifier import verify_final`."""
-    return run_tests(code, test, entry_point, timeout_s=timeout_s)
+    return run_tests(
+        code, test, entry_point, timeout_s=timeout_s,
+        prompt=prompt, dataset=dataset,
+    )

@@ -32,7 +32,7 @@ def run_self_consistency(model, tokenizer, num_params, problems, config, ledger)
         candidates=[g[0] for g in ordered]
         tested=[]
         for code in candidates:
-            tr=run_tests(code,problem["test"],problem["entry_point"],timeout_s=config["verifier"]["execution_timeout_s"])
+            tr=run_tests(code,problem["test"],problem["entry_point"],timeout_s=config["verifier"]["execution_timeout_s"],prompt=problem["prompt"],dataset=problem["dataset"])
             tested.append((code,tr,len(groups[_normalize_code(code)])))
         passing=[x for x in tested if x[1]["passed"]]
         best=max(passing,key=lambda x:x[2]) if passing else max(tested,key=lambda x:(x[2],x[1]["valid_ast"]))

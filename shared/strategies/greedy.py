@@ -37,6 +37,7 @@ def run_greedy(model, tokenizer, num_params, problems, config, ledger):
         test_result = run_tests(
             code, problem["test"], problem["entry_point"],
             timeout_s=config["verifier"]["execution_timeout_s"],
+            prompt=problem["prompt"], dataset=problem["dataset"],
         )
 
         ledger.log(FlopRecord(
