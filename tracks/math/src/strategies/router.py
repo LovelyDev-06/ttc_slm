@@ -74,7 +74,10 @@ def get_embedder(model_name: str) -> SentenceTransformer:
 def embed_problems(problems, config) -> np.ndarray:
     embedder = get_embedder(config["router"]["embedding_model"])
     texts = [p["prompt"] + "\n" + " ".join(f"{c['label']}: {c['text']}" for c in p.get("choices", [])) for p in problems]
-    return embedder.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+    embs = embedder.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+    # L2-normalize so train and inference see unit-norm inputs (same method, all tracks).
+    norms = np.linalg.norm(embs, axis=1, keepdims=True) + 1e-12
+    return embs / norms
 
 
 def load_router(checkpoint_path: str, config: dict, embedding_dim: int = 384) -> LatentRouterNet:

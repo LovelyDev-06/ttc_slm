@@ -55,7 +55,7 @@ def _guess_entry_point(test_list):
         return None
 
 
-def load_dataset(name: str, split: str = "test", limit: int = None):
+def load_dataset(name: str, split: str = "test", limit: int = None, seed: int = None):
     """
     name: "humaneval" or "mbpp"
     Returns: list[dict] in the common schema above.
@@ -72,6 +72,11 @@ def load_dataset(name: str, split: str = "test", limit: int = None):
         raise ValueError(f"Unknown dataset '{name}'. Expected 'humaneval' or 'mbpp'.")
 
     problems = [converter(ex, i) for i, ex in enumerate(ds)]
-    if limit:
+    if limit is not None and seed is not None:
+        import random
+        rng = random.Random(seed)
+        problems = rng.sample(problems, min(limit, len(problems)))
+        problems.sort(key=lambda p: p["problem_id"])
+    elif limit:
         problems = problems[:limit]
     return problems

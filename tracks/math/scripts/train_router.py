@@ -21,7 +21,7 @@ _FUNCS = {
     "tree_search": run_tree_search,
 }
 def main():
- p=argparse.ArgumentParser(); p.add_argument("--model",required=True,choices=["llama1b","llama3b"]); p.add_argument("--dataset",default="gsm8k",choices=["gsm8k","math"]); p.add_argument("--split",default="train"); p.add_argument("--limit",type=int,default=None); p.add_argument("--seed",type=int,default=None,help="if set with --limit, take a reproducible random sample instead of the first N problems"); p.add_argument("--config",default="configs/config.yaml"); p.add_argument("--out",default="checkpoints/router.safetensors"); p.add_argument("--no_push",action="store_true"); p.add_argument("--fresh_net",action="store_true",help="retrain the network from scratch, reusing already-completed labels, without resuming from a prior net checkpoint"); a=p.parse_args()
+ p=argparse.ArgumentParser(); p.add_argument("--model",required=True,choices=["llama1b"]); p.add_argument("--dataset",default="gsm8k",choices=["gsm8k"]); p.add_argument("--split",default="train"); p.add_argument("--limit",type=int,default=None); p.add_argument("--seed",type=int,default=None,help="if set with --limit, take a reproducible random sample instead of the first N problems"); p.add_argument("--config",default="configs/config.yaml"); p.add_argument("--out",default="checkpoints/router.safetensors"); p.add_argument("--no_push",action="store_true"); p.add_argument("--fresh_net",action="store_true",help="retrain the network from scratch, reusing already-completed labels, without resuming from a prior net checkpoint"); a=p.parse_args()
  with open(a.config,encoding="utf-8") as f: cfg=yaml.safe_load(f)
  push_every_n = cfg["hub"].get("push_every_n_problems", 30)
  os.makedirs(os.path.dirname(a.out) or ".",exist_ok=True); os.makedirs(cfg["paths"]["checkpoints_dir"],exist_ok=True)
@@ -140,7 +140,7 @@ def main():
  raw_weights[present]=class_counts.sum()/(present.sum()*class_counts[present])
  min_weight=raw_weights[present].min()
  normalized_weights=raw_weights/min_weight
- MAX_WEIGHT=5.0
+ MAX_WEIGHT=2.0
  class_weights[present]=torch.clamp(normalized_weights[present],max=MAX_WEIGHT)
  print("Router class weights (Normalized):",{strategies[k]: round(class_weights[k].item(),3) for k in range(len(strategies))})
  loss_fn=nn.CrossEntropyLoss(weight=class_weights)
@@ -152,22 +152,38 @@ def main():
  elif a.fresh_net:
   print("--fresh_net: training the network from scratch (reusing already-completed labels)")
  net.train()
- best_acc=-1.0; best_state=None
+ # Train/val split + honest baselines (same method, all tracks).
+ import random as _random
+ _rng=_random.Random(42); _idx=list(range(len(labels))); _rng.shuffle(_idx)
+ _n_val=max(1,int(0.2*len(_idx))); _val_idx=sorted(_idx[:_n_val]); _tr_idx=sorted(_idx[_n_val:])
+ X_all=torch.tensor(embeddings,dtype=torch.float32); y_all=torch.tensor(labels,dtype=torch.long)
+ X=X_all[_tr_idx]; y=y_all[_tr_idx]; X_val=X_all[_val_idx]; y_val=y_all[_val_idx]
+ majority=max(counts.values())/sum(counts.values())
+ print(f"Baselines: majority={majority:.2%} random={1.0/len(strategies):.2%} train_n={len(y)} val_n={len(y_val)}")
+ def _balanced_acc(logits,targets):
+  pred=logits.argmax(-1); recs=[]
+  for k in range(len(strategies)):
+   m=(targets==k)
+   if m.sum().item()>0: recs.append((pred[m]==k).float().mean().item())
+  return sum(recs)/len(recs) if recs else 0.0
+ best_acc=-1.0; best_state=None; best_val=-1.0
  for epoch in range(start_epoch,cfg["router"]["epochs"]):
-  opt.zero_grad(); logits,_=net(X); loss=loss_fn(logits,y); loss.backward(); opt.step(); acc=(logits.argmax(-1)==y).float().mean().item(); print(f"epoch {epoch+1}/{cfg['router']['epochs']} loss={loss.item():.4f} train_acc={acc:.2%}")
-  # Track the best-accuracy epoch, not just the last one -- training accuracy
-  # on this kind of small, imbalanced label set can peak mid-training and
-  # regress by the final epoch (observed: peaked at 58.59% around epoch 17,
-  # regressed to 40.62% by epoch 30 on a real 200-problem run). Saving only
-  # the final epoch silently keeps the worse model.
-  if acc>best_acc: best_acc=acc; best_state={k:v.clone() for k,v in net.state_dict().items()}
+  opt.zero_grad(); logits,_=net(X); loss=loss_fn(logits,y); loss.backward(); opt.step()
+  with torch.no_grad():
+   acc=(logits.argmax(-1)==y).float().mean().item(); bacc=_balanced_acc(logits,y)
+   v_logits,_=net(X_val); vacc=(v_logits.argmax(-1)==y_val).float().mean().item(); vbacc=_balanced_acc(v_logits,y_val)
+  print(f"epoch {epoch+1}/{cfg['router']['epochs']} loss={loss.item():.4f} train_acc={acc:.2%} train_bal={bacc:.2%} val_acc={vacc:.2%} val_bal={vbacc:.2%}")
+  # Track best-val epoch, not just the last -- small/imbalanced sets peak
+  # mid-training and regress by the final epoch. Saving only the final
+  # epoch silently keeps the worse model.
+  if vacc>best_val: best_val=vacc; best_acc=acc; best_state={k:v.clone() for k,v in net.state_dict().items()}
   save_file(net.state_dict(),weight_resume); atomic_json_save({"version":3,"epoch":epoch+1,"loss":float(loss.item()),"metadata":{"model":a.model,"dataset":a.dataset,"split":a.split,"limit":tag}},train_state)
-  # Push every 5 epochs, not every epoch -- pushing 2 files x 30 epochs plus
+  # Push every 5 epochs, not every epoch -- pushing 2 files x epochs plus
   # the labeling-phase pushes can approach Hugging Face's hourly commit rate
   # limit (128/hour) in a single run.
   if not a.no_push and ((epoch+1)%5==0 or epoch+1==cfg["router"]["epochs"]): push_file(weight_resume,cfg,f"checkpoints/{os.path.basename(weight_resume)}"); push_file(train_state,cfg,f"checkpoints/{os.path.basename(train_state)}")
  if best_state is not None:
-  net.load_state_dict(best_state); print(f"Using best checkpoint: train_acc={best_acc:.2%} (final epoch was {acc:.2%})")
+  net.load_state_dict(best_state); print(f"Using best checkpoint: val_acc={best_val:.2%} train_acc={best_acc:.2%} (final epoch was train {acc:.2%} val {vacc:.2%})")
  save_file(net.state_dict(),a.out); print(f"Saved trained learned latent router to {a.out}")
  if not a.no_push: push_file(a.out,cfg,f"checkpoints/{os.path.basename(a.out)}")
 if __name__=="__main__": main()
