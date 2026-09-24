@@ -17,7 +17,7 @@ router:
   embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
   hidden_dim: 128
   latent_dim: 32
-  epochs: 200
+  epochs: 26
   lr: 0.002
   strategies_available: ["greedy", "best_of_n", "self_consistency", "tree_search"]
   inference_mask_unseen: []
