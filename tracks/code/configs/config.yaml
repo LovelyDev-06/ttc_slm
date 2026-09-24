@@ -40,7 +40,7 @@ router:
   type: "learned_latent"       # a small MLP trained on problem+candidate embeddings, NOT a hand-written if/else
   embedding_model: "sentence-transformers/all-MiniLM-L6-v2"   # cheap CPU-friendly embedder for router features
   hidden_dim: 128
-  latent_dim: 32
+  latent_dim: 20
   epochs: 200
   lr: 0.002
   strategies_available: ["greedy", "best_of_n", "self_consistency", "tree_search"]  # what the router is allowed to pick between
