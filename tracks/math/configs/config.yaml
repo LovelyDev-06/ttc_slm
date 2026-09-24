@@ -7,7 +7,7 @@ models:
   dtype: "bfloat16"
   device_map: "auto"
 datasets:
-  gsm8k: {hf_name: "gsm8k", config: "main", split: "test"}
+  gsm8k: {hf_name: "openai/gsm8k", config: "main", split: "test"}
 best_of_n: {n_candidates: 8}
 self_consistency: {n_samples: 8}
 tree_search: {branching_factor: 3, max_depth: 4, beam_width: 3}

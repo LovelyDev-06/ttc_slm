@@ -15,7 +15,7 @@ models:
 
 datasets:
   mbpp:
-    hf_name: "mbpp"
+    hf_name: "google-research-datasets/mbpp"
     split: "test"            # sanitized split is "test"; full is also available as "full"
 
 best_of_n:

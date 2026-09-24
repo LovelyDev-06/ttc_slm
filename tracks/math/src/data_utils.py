@@ -20,7 +20,7 @@ def _math(ex, idx):
 def load_dataset(name: str, split: str="test", limit: int=None, seed: int=None):
     name=name.lower()
     if name=="gsm8k":
-        ds=hf_load_dataset("gsm8k","main",split=split)
+        ds=hf_load_dataset("openai/gsm8k","main",split=split)
         conv=_gsm8k
     elif name in {"math","hendrycks_math"}:
         hf_split="test" if split=="test" else "train"

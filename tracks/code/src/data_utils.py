@@ -62,11 +62,11 @@ def load_dataset(name: str, split: str = "test", limit: int = None, seed: int = 
     """
     name = name.lower()
     if name == "humaneval":
-        ds = hf_load_dataset("openai_humaneval", split=split)
+        ds = hf_load_dataset("openai/openai_humaneval", split=split)
         converter = _humaneval_to_common
     elif name == "mbpp":
         # sanitized config has cleaner single test_list entries
-        ds = hf_load_dataset("mbpp", "sanitized", split=split if split != "test" else "test")
+        ds = hf_load_dataset("google-research-datasets/mbpp", "sanitized", split=split if split != "test" else "test")
         converter = _mbpp_to_common
     else:
         raise ValueError(f"Unknown dataset '{name}'. Expected 'humaneval' or 'mbpp'.")
