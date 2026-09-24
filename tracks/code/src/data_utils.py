@@ -1,31 +1,14 @@
 """
 data_utils.py
 
-Loads HumanEval and MBPP and normalizes both into one common problem shape,
-so every strategy script only has to deal with ONE format regardless of
-which benchmark it's pointed at.
-
-REUSE NOTE: same role as Partner A's data_utils.py (GSM8K/MATH loading).
-Structure is intentionally parallel — a `load_dataset(name, split, limit)`
-function returning a list of dicts with a common schema. If you want to
-merge the two repos later, this is the file to unify first.
+Loads MBPP only (canonical paper setup) and normalizes into the common
+problem shape for every strategy script.
 """
 
 from datasets import load_dataset as hf_load_dataset
 
 
 COMMON_SCHEMA_KEYS = ["problem_id", "prompt", "test", "entry_point", "reference_solution"]
-
-
-def _humaneval_to_common(example, idx):
-    return {
-        "problem_id": example.get("task_id", f"humaneval_{idx}"),
-        "prompt": example["prompt"],
-        "test": example["test"],
-        "entry_point": example["entry_point"],
-        "reference_solution": example.get("canonical_solution", ""),
-        "dataset": "humaneval",
-    }
 
 
 def _mbpp_to_common(example, idx):
@@ -57,19 +40,16 @@ def _guess_entry_point(test_list):
 
 def load_dataset(name: str, split: str = "test", limit: int = None, seed: int = None):
     """
-    name: "humaneval" or "mbpp"
+    name: "mbpp" only (canonical paper setup)
     Returns: list[dict] in the common schema above.
     """
     name = name.lower()
-    if name == "humaneval":
-        ds = hf_load_dataset("openai/openai_humaneval", split=split)
-        converter = _humaneval_to_common
-    elif name == "mbpp":
+    if name == "mbpp":
         # sanitized config has cleaner single test_list entries
         ds = hf_load_dataset("google-research-datasets/mbpp", "sanitized", split=split if split != "test" else "test")
         converter = _mbpp_to_common
     else:
-        raise ValueError(f"Unknown dataset '{name}'. Expected 'humaneval' or 'mbpp'.")
+        raise ValueError(f"Unknown dataset '{name}'. Expected 'mbpp'.")
 
     problems = [converter(ex, i) for i, ex in enumerate(ds)]
     if limit is not None and seed is not None:
