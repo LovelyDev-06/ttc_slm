@@ -2,7 +2,7 @@
 
 Partner C deliverable for the six-strategy evaluation pipeline.
 
-**Domain:** general reasoning and multiple-choice reasoning using **Llama-3.2-1B-Instruct** and **Qwen2.5-1.5B-Instruct** on **ARC-Challenge** and **MMLU STEM**.
+**Domain:** general reasoning and multiple-choice reasoning using **Llama-3.2-1B-Instruct** on **ARC-Challenge** (canonical paper setup: one model + one dataset). Hub: `swasa26/ttc-slm-reasoning`.
 
 The repository mirrors the shared Code Track architecture but replaces code execution/AST validation with reasoning-specific answer extraction, exact multiple-choice correctness, reasoning-quality signals, and step-level tree-search judging. The assignment guide specifies that Partner C owns an independent six-strategy pipeline for these two models and reasoning benchmarks. See the provided guide for the independent-track requirement and the six strategy definitions.
 
@@ -12,7 +12,7 @@ The repository mirrors the shared Code Track architecture but replaces code exec
 3. **Self-Consistency** — multiple reasoning paths, final-answer consensus voting.
 4. **Tree Search** — branching partial reasoning paths with LLM step judging and pruning.
 5. **Verifier** — reasoning-oriented answer correctness and quality scoring.
-6. **Learned Latent Router** — sentence embedding → hidden layer → latent bottleneck → strategy classifier.
+6. **Learned Latent Router** — L2-normed MiniLM embedding → `128` hidden → `32` latent bottleneck → strategy classifier (`lr 0.002, epochs 200, MAX_WEIGHT 2.0`, `80/20 train/val split seed 42`). Same method in all tracks, no dropout.
 
 ## Domain-specific design
 - `src/reasoning_utils.py`: extracts final option labels and checks exact benchmark answers.
@@ -21,11 +21,12 @@ The repository mirrors the shared Code Track architecture but replaces code exec
 - `src/strategies/tree_search.py`: explores partial reasoning paths and uses the LM itself as a Yes/No step judge.
 - `src/strategies/router.py`: same learned latent-router architecture as the shared code repo, including inference masking for unseen strategy classes.
 
-## Dataset commands
+## Dataset commands (canonical)
 ```bash
-python scripts/run_greedy.py --model llama1b --dataset arc_challenge --limit 20
-python scripts/run_greedy.py --model qwen1_5b --dataset mmlu_stem --limit 20
+python scripts/run_greedy.py --model llama1b --dataset arc_challenge --limit 20 --seed 42
+python scripts/train_router.py --model llama1b --dataset arc_challenge --limit 200 --seed 42 --fresh_net
 ```
+Router logs now report `majority/random` baselines plus `train_acc/train_bal/val_acc/val_bal`; best checkpoint is picked on `val_acc`.
 
 Run order: greedy → best-of-N → self-consistency → tree search → train router → run router.
 

@@ -1,10 +1,10 @@
 # Adaptive Inference Routing — Three-Track Research Repository
 
-A consolidated research repository containing three independently runnable tracks:
+A consolidated research repository containing three independently runnable tracks (one model + one dataset each for the paper):
 
-- **Math:** Llama-3.2 1B / 3B on GSM8K and MATH
-- **Code:** Qwen2.5 1.5B / 7B on HumanEval and MBPP
-- **Reasoning:** Llama-3.2 1B and Qwen2.5 1.5B on ARC-Challenge and MMLU STEM
+- **Reasoning:** Llama-3.2-1B-Instruct on ARC-Challenge → `swasa26/ttc-slm-reasoning`
+- **Math:** Llama-3.2-1B-Instruct on GSM8K → `swasa26/ttc-slm-math`
+- **Code:** Qwen2.5-1.5B-Instruct on MBPP → `swasa26/ttc-slm-code`
 
 Each track implements the same research framework:
 1. Greedy decoding
@@ -12,7 +12,7 @@ Each track implements the same research framework:
 3. Self-consistency
 4. Tree search
 5. Domain verifier
-6. Learned latent router
+6. Learned latent router (ONE shared method: `384 -> 128 -> 32 -> 4`, L2-normed MiniLM embeddings, no dropout, `lr 0.002, epochs 200, MAX_WEIGHT 2.0`, `80/20 train/val split seed 42`, `--seed` sampling everywhere)
 
 ## Router safety
 

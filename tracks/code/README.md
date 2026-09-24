@@ -1,7 +1,7 @@
 # Code Track — Test-Time Compute Scaling for Small LMs
 
 Partner B deliverable for the "Test-Time Compute Scaling for Small Language Models" project.
-Domain: **Code** — Qwen2.5-1.5B-Instruct & Qwen2.5-7B-Instruct on **HumanEval** and **MBPP**.
+Domain: **Code** — Qwen2.5-1.5B-Instruct on **MBPP** (canonical paper setup: one model + one dataset). Hub: `swasa26/ttc-slm-code`.
 
 This repo implements the six shared strategies end-to-end, independently of the Math
 (Partner A) and Reasoning (Partner C) tracks, per the Team Work Assignment Guide — plus
@@ -47,7 +47,7 @@ file. Nothing here requires you to write new code to get started — just follow
 | 1 | Greedy Decoding  | `scripts/run_greedy.py`                                    | single deterministic generation |
 | 2 | Best-of-N        | `scripts/run_best_of_n.py`                                  | picks the candidate that passes tests (falls back to valid-AST candidate) |
 | 3 | Tree Search      | `scripts/run_tree_search.py`                                | expands code search paths and prunes with a lightweight ranking signal |
-| 4 | Router           | `scripts/train_router.py` + `scripts/run_router.py`          | **learned latent router**: MLP with a latent bottleneck over problem embeddings; labels trade correctness against FLOP cost |
+| 4 | Router           | `scripts/train_router.py` + `scripts/run_router.py`          | **learned latent router**: L2-normed MiniLM → `128` hidden → `32` latent → 4 strategies; `lr 0.002, epochs 200, MAX_WEIGHT 2.0`, `80/20 train/val`, `--seed` sampling, no dropout; labels = cheapest passing strategy |
 
 ## Repo layout
 
@@ -111,15 +111,15 @@ from kaggle_secrets import UserSecretsClient
 login(UserSecretsClient().get_secret("HF_TOKEN"))
 ```
 
-5. Edit `configs/config.yaml`: change `hub.repo_id` to your own HF username/repo.
+5. `configs/config.yaml` already points at `hub.repo_id: swasa26/ttc-slm-code` — create that empty HF repo first.
 
 6. Run stage by stage, cheapest first (this also validates your setup early):
 
 ```
-!python scripts/run_greedy.py --model qwen1_5b --dataset humaneval --limit 20
+!python scripts/run_greedy.py --model qwen1_5b --dataset mbpp --limit 20 --seed 42
 ```
 
-Drop `--limit` once you've confirmed it runs, and repeat for `qwen7b`, `mbpp`, etc.
+Drop `--limit` once you've confirmed it runs.
 
 7. Each run writes results to `logs/<strategy>_<model>_<dataset>.jsonl` and pushes to your
    HF Hub repo (see `configs/config.yaml` → `hub:`).
@@ -136,10 +136,7 @@ Drop `--limit` once you've confirmed it runs, and repeat for `qwen7b`, `mbpp`, e
 4. `run_tree_search.py` — most expensive per-problem, do this once your compute budget allows.
    Works without a trained verifier too (falls back to a cheap heuristic score) — just less
    accurately ranked.
-5. `train_router.py` — the big one: runs greedy, best_of_n, AND tree_search on a small
-   training subset (default 60 problems — keep this small, it's expensive) to label each
-   problem with "which strategy was best for its cost", then trains the latent router MLP
-   on problem embeddings to predict that label.
+5. `train_router.py --model qwen1_5b --dataset mbpp --limit 200 --seed 42 --fresh_net` — the big one: runs all strategies on the training subset to label each problem with cheapest-passing strategy, then trains the latent router MLP on L2-normed embeddings. Logs `majority/random` baselines plus `train_bal/val_acc/val_bal`; best checkpoint picked on `val_acc`.
 6. `run_router.py` — uses the trained router to route each **test** problem to a strategy
    automatically, no manual strategy selection.
 7. `scripts/evaluate_all.py` — aggregates all logs into one results table + a
@@ -183,7 +180,7 @@ the same way you'd eyeball a problem and guess "this one needs more thought."
 
 ## Definition of done (per the assignment guide)
 
-- [ ] All six strategies run successfully on both models (1.5B, 7B) and both benchmarks (HumanEval, MBPP)
+- [ ] All six strategies run successfully on `qwen1_5b` + `mbpp` (canonical paper setup)
 - [ ] AST-based execution validation works reliably (checked via `run_tests` returning consistent pass/fail)
 - [ ] Learned verifier trained and evaluated (validation accuracy reported by `train_verifier.py`)
 - [ ] Learned latent router trained and evaluated (routing distribution + accuracy reported by `run_router.py`)
